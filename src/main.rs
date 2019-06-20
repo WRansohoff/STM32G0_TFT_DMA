@@ -36,6 +36,15 @@ fn spi_w16( spi: &stm32::SPI1, bytes: u16 ) -> () {
   unsafe { spi.dr.write( |w| w.dr().bits( bytes ) ) };
 }
 
+// Method to toggle PA0 once the current SPI transaction
+// finishes, to switch between 'data' and 'command' modes.
+// 'false' (0) is command mode, 'true' (1) is data mode.
+fn dat_cmd( spi: &stm32::SPI1, gpioa: &stm32::GPIOA, dat: bool ) -> () {
+  while spi.sr.read().bsy().bit_is_set() {};
+  if dat { gpioa.odr.modify( |_r,w| w.odr0().set_bit() ); }
+  else { gpioa.odr.modify( |_r,w| w.odr0().clear_bit() ); }
+}
+
 #[entry]
 fn main() -> ! {
   // Checkout ARM Cortex-M peripheral singleton..
@@ -193,7 +202,7 @@ fn main() -> ! {
     // Send initialization commands. This can't use DMA,
     // because we need to toggle the 'A0' pin for some values.
     // Software reset.
-    gpioa.odr.modify( |_r,w| w.odr0().clear_bit() );
+    dat_cmd( &spi, &gpioa, false );
     spi_w8( &spi, 0x01 );
     // 100ms delay.
     syst.clear_current();
@@ -206,12 +215,10 @@ fn main() -> ! {
     spi_w8( &spi, 0x28 );
     // Color mode: 16bpp.
     spi_w8( &spi, 0x3A );
-    while spi.sr.read().bsy().bit_is_set() {};
-    gpioa.odr.modify( |_r,w| w.odr0().set_bit() );
+    dat_cmd( &spi, &gpioa, true );
     spi_w8( &spi, 0x55 );
-    while spi.sr.read().bsy().bit_is_set() {};
     // Exit sleep mode, delay.
-    gpioa.odr.modify( |_r,w| w.odr0().clear_bit() );
+    dat_cmd( &spi, &gpioa, false );
     spi_w8( &spi, 0x11 );
     syst.clear_current();
     syst.enable_counter();
@@ -231,26 +238,22 @@ fn main() -> ! {
     // So instead of setting X/Y ranges of [0:127]...
     // Column set: [2:129]
     spi_w8( &spi, 0x2A );
-    while spi.sr.read().bsy().bit_is_set() {};
-    gpioa.odr.modify( |_r,w| w.odr0().set_bit() );
+    dat_cmd( &spi, &gpioa, true );
     spi_w16( &spi, 0x0200 );
     spi_w16( &spi, 0x8100 );
-    while spi.sr.read().bsy().bit_is_set() {};
+    dat_cmd( &spi, &gpioa, false );
     // Row set: [1:128]
-    gpioa.odr.modify( |_r,w| w.odr0().clear_bit() );
     spi_w8( &spi, 0x2B );
-    while spi.sr.read().bsy().bit_is_set() {};
-    gpioa.odr.modify( |_r,w| w.odr0().set_bit() );
+    dat_cmd( &spi, &gpioa, true );
     spi_w16( &spi, 0x0100 );
     spi_w16( &spi, 0x8000 );
-    while spi.sr.read().bsy().bit_is_set() {};
+    dat_cmd( &spi, &gpioa, false );
     // Set 'write to RAM' mode.
-    gpioa.odr.modify( |_r,w| w.odr0().clear_bit() );
     spi_w8( &spi, 0x2C );
-    while spi.sr.read().bsy().bit_is_set() {};
 
     // Pull pin A0 high for pixel data.
-    gpioa.odr.modify( |_r,w| w.odr0().set_bit() );
+    dat_cmd( &spi, &gpioa, true );
+
     // Enable the DMA channel connected to the framebuffer.
     dma.ccr1.modify( |_r,w| w.en().set_bit() );
   }
