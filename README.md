@@ -17,3 +17,7 @@ Sorry that the code is a little messy, I'm still learning about embedded Rust. A
 The local STM32 PAC is just a collection of auto-generated `svd2rust` crates; you should be able to drop in any version generated with the steps described in:
 
 https://docs.rs/svd2rust/0.14.0/svd2rust/
+
+More information about PACs in the Embedded Rust ebook:
+
+https://rust-embedded.github.io/book/start/registers.html
