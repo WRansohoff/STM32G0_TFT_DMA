@@ -16,10 +16,10 @@ use stm32_pac::stm32g0x1 as stm32;
 static mut SYS_CLK_HZ : u32 = 16_000_000;
 
 // Framebuffer for the TFT display.
-const ST7735_W  : u8 = 128;
-const ST7735_H  : u8 = 128;
-const ST7735_A  : usize = ( ST7735_W as usize * ST7735_H as usize );
-static mut ST7735_FB : [ u16; ( ST7735_A ) ] = [ 0x0000; ST7735_A ];
+const ILI9163C_W  : u8 = 128;
+const ILI9163C_H  : u8 = 128;
+const ILI9163C_A  : usize = ( ILI9163C_W as usize * ILI9163C_H as usize );
+static mut ILI9163C_FB : [ u16; ( ILI9163C_A ) ] = [ 0x0000; ILI9163C_A ];
 
 // Note: For the STM32G0 SPI peripheral, we need to use
 // `ptr::write_volatile` for single-byte writes.
@@ -84,10 +84,10 @@ fn main() -> ! {
 
   // Setup pin B4 as alternate function #1 (TIM3_CH1),
   // and B3/5 as alternate function #0 (SPI1)
-  gpiob.moder.modify( |_r,w| w.moder3().alternate()
-                              .moder4().alternate()
-                              .moder5().alternate() );
   unsafe {
+    gpiob.moder.modify( |_r,w| w.moder3().bits( 2 )
+                                .moder4().bits( 2 )
+                                .moder5().bits( 2 ) );
     gpiob.afrl.modify( |_r,w| w.afsel3().bits( 0 )
                                .afsel4().bits( 1 )
                                .afsel5().bits( 0 ) );
@@ -101,9 +101,11 @@ fn main() -> ! {
   // 'A0' ~= 'Data/Command' from other 4-wire SPIs,
   // and it's a coincidence that I'm using PA0 for that pin.
   // Setup pin A15 as push-pull output for now; software CS.
-  gpioa.moder.modify( |_r,w| w.moder0().output()
-                              .moder1().output()
-                              .moder15().output() );
+  unsafe {
+    gpioa.moder.modify( |_r,w| w.moder0().bits( 1 )
+                                .moder1().bits( 1 )
+                                .moder15().bits( 1 ) );
+  }
   // Set initial pin states: high for CS/Reset, low for A0.
   gpioa.odr.modify( |_r,w| w.odr0().clear_bit()
                             .odr1().set_bit()
@@ -148,10 +150,10 @@ fn main() -> ! {
     dmamux.dmamux_c0cr.write( |w| w.dmareq_id().bits( 17 ) );
     // Set DMA transfer size and source/destination addresses.
     // TODO: Get register addresses from PAC values.
-    let st7735_fb_addr : u32 = &ST7735_FB as *const [ u16; ST7735_A as usize ] as u32;
-    dma.cndtr1.write( |w| w.ndt().bits( ST7735_A as u16 ) );
+    let ili9163c_fb_addr : u32 = &ILI9163C_FB as *const [ u16; ILI9163C_A as usize ] as u32;
+    dma.cndtr1.write( |w| w.ndt().bits( ILI9163C_A as u16 ) );
     dma.cpar1.write( |w| w.pa().bits( 0x4001300C ) );
-    dma.cmar1.write( |w| w.ma().bits( st7735_fb_addr ) );
+    dma.cmar1.write( |w| w.ma().bits( ili9163c_fb_addr ) );
 
     // Toggle pin A1 to reset the display.
     gpioa.odr.modify( |_r,w| w.odr1().clear_bit() );
@@ -258,8 +260,8 @@ fn main() -> ! {
   let mut pos : usize = 0;
   loop {
     // Put a simple incrementing pattern into the framebuffer.
-    unsafe { ST7735_FB[ pos ] = val };
-    if pos < ( ST7735_A - 1 ) { pos = pos + 1; }
+    unsafe { ILI9163C_FB[ pos ] = val };
+    if pos < ( ILI9163C_A - 1 ) { pos = pos + 1; }
     else { pos = 0; }
     if val < 65534 { val = val + 1; }
     else { val = 0; }
