@@ -13,3 +13,7 @@ Pin assignments:
 * A1 = Reset
 
 Sorry that the code is a little messy, I'm still learning about embedded Rust. A lot of the Cargo configuration comes from the embedded Rust working group's 'ARM Cortex-M Quickstart' project.
+
+The local STM32 PAC is just a collection of auto-generated `svd2rust` crates; you should be able to drop in any version generated with the steps described in:
+
+https://docs.rs/svd2rust/0.14.0/svd2rust/
