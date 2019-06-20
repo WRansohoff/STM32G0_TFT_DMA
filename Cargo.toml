@@ -1,0 +1,34 @@
+[package]
+authors = ["WRansohoff"]
+edition = "2018"
+readme = "README.md"
+name = "stm32g0-rust-spi-dma"
+version = "0.1.0"
+
+[dependencies]
+cortex-m = "0.5.8"
+cortex-m-rt = "0.6.5"
+panic-halt = "0.2.0"
+
+# Local STM32 Peripheral Access Crates.
+[dependencies.stm32_pac]
+path = "../stm32_pac"
+version = "0.0.1"
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "stm32g0-rust-spi-dma"
+test = false
+bench = false
+
+[profile.release]
+codegen-units = 1 # better optimizations
+debug = true # symbols are nice and they don't increase the size on Flash
+lto = true # better optimizations
+
+# Define which board to build for.
+# The '_rt's are optional; they select the 'rt' feature of the PAC.
+# TODO: Unify the target selection into a single configuration.
+[features]
+default = [ "G071GB" ]
+G071GB = [ "stm32_pac/stm32g0x1_rt" ]
